@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}LHPP{% endblock %}
+{% block header %}LHPP &mdash; Laporan Hasil Pelaksanaan Pekerjaan{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-journal-text me-1"></i>Daftar LHPP ({{ rows | length }})</div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Penawaran</th><th>Klien</th><th>Deadline</th><th>Selesai</th><th>Status</th>
+              <th>Reminder</th><th class="text-end">Aksi</th></tr>
+          </thead>
+          <tbody>
+            {% for lh, pen, c in rows %}
+            <tr>
+              <td class="small fw-semibold">{{ pen.nomor_surat }}</td>
+              <td class="small">{{ c.nama_perusahaan }}<br><span class="text-muted">{{ c.kota }}</span></td>
+              <td class="small">{{ lh.deadline_at | tanggal }}</td>
+              <td class="small">{{ lh.tanggal_selesai | tanggal }}</td>
+              <td>
+                {% if lh.is_uploaded %}<span class="badge bg-success badge-status">TERUNGGAH</span>
+                {% else %}<span class="badge bg-danger badge-status">BELUM</span>{% endif %}
+              </td>
+              <td class="small">{{ lh.reminder_count }}x</td>
+              <td class="text-end">
+                <a href="/penawaran/{{ pen.id }}" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-pencil me-1"></i>Kelola</a>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-4">Belum ada LHPP.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% if user.role in ['SUPERADMIN', 'ADMIN_WILAYAH'] %}
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-journal-plus me-1"></i>Siapkan LHPP</div>
+      <div class="card-body">
+        <p class="small text-muted">Penawaran berstatus <b>SURAT_TUGAS</b> (surat tugas sudah ditandatangani)
+          siap dibuatkan LHPP dengan deadline otomatis 7 hari.</p>
+        <form method="post" action="/lhpp/siapkan/0" id="formSiap" onsubmit="return setPenawaran()">
+          <label class="form-label small fw-semibold">Penawaran</label>
+          <select class="form-select form-select-sm mb-2" id="selPenawaran" required>
+            <option value="">— pilih penawaran —</option>
+            {% for p in penawaran_lhpp %}
+            {% set c = klien_map.get(p.client_id) %}
+            <option value="{{ p.id }}">{{ p.nomor_surat }} — {{ c.nama_perusahaan if c else '' }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-outline-primary btn-sm w-100">
+            <i class="bi bi-journal-plus me-1"></i>Siapkan LHPP</button>
+        </form>
+      </div>
+    </div>
+    <div class="rahasia-note mt-3">
+      <i class="bi bi-clock-history me-1"></i>Cron per jam mengirim reminder Telegram ke Grup Admin
+      bila LHPP belum diunggah dan sisa waktu &le; 2 hari.
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function setPenawaran() {
+  const id = document.getElementById('selPenawaran').value;
+  if (!id) { alert('Pilih penawaran dulu.'); return false; }
+  document.getElementById('formSiap').action = '/lhpp/siapkan/' + id;
+  return true;
+}
+</script>
+{% endblock %}

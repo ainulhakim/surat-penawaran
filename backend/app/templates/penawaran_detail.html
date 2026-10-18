@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+{% block title %}{{ p.nomor_surat }}{% endblock %}
+{% block header %}Penawaran {{ p.nomor_surat }}{% endblock %}
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h5 class="mb-1">{{ p.perihal or 'Penawaran' }}
+      {% if p.is_nego %}<span class="badge bg-warning text-dark badge-status align-middle">NEGO</span>{% endif %}
+      <span class="badge bg-{{ p.status | badge }} badge-status align-middle">{{ p.status }}</span>
+    </h5>
+    <div class="small text-muted">
+      {{ klien.nama_perusahaan if klien else '-' }} &middot; {{ klien.kota if klien else '' }}
+      &middot; Wilayah {{ wilayah.nama if wilayah else p.wilayah_id }}
+      &middot; Dibuat {{ p.created_at | tanggal_waktu }}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/penawaran" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Daftar</a>
+    {% if user.role in ['SUPERADMIN', 'ADMIN_WILAYAH'] and p.status in ['DRAFT', 'REVISI'] %}
+    <a href="/penawaran/{{ p.id }}/edit" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil me-1"></i>Ubah</a>
+    <form method="post" action="/penawaran/{{ p.id }}/submit"
+          onsubmit="return confirm('Ajukan penawaran ini ke SPV?')">
+      <button class="btn btn-sm btn-primary"><i class="bi bi-send me-1"></i>Ajukan ke SPV</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if p.revisi_catatan and p.status == 'REVISI' %}
+<div class="alert alert-danger py-2 small"><b>Catatan revisi SPV:</b> {{ p.revisi_catatan }}</div>
+{% endif %}
+
+{% if lock %}
+<div class="alert alert-warning py-2 small">
+  <i class="bi bi-lock-fill me-1"></i>Client terkunci untuk wilayah lain s/d
+  <b>{{ lock.expires_at | tanggal_waktu }}</b> ({{ lock.reason }}). Wilayah: {{ wilayah.nama if wilayah else p.wilayah_id }}.
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-list-check me-1"></i>Item Penawaran</div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>#</th><th>Uraian</th><th class="text-end">Qty</th><th class="text-end">Harga</th>
+              <th class="text-end">Subtotal</th></tr>
+          </thead>
+          <tbody>
+            {% for it in p.items %}
+            <tr>
+              <td class="small text-muted">{{ loop.index }}</td>
+              <td class="small"><b>{{ it.uraian }}</b>
+                {% if it.spesifikasi %}<br><span class="text-muted">{{ it.spesifikasi }}</span>{% endif %}</td>
+              <td class="text-end small">{{ it.qty }} {{ it.satuan }}</td>
+              <td class="text-end small">
+                {{ (it.harga_nego if (it.is_nego and it.harga_nego is not none) else it.harga_satuan) | rupiah }}
+                {% if it.is_nego and it.harga_nego is not none %}
+                <br><s class="text-muted small">{{ it.harga_satuan | rupiah }}</s>
+                {% endif %}
+              </td>
+              <td class="text-end small fw-semibold">{{ it.subtotal | rupiah }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-3">Belum ada item.</td></tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-light">
+            <tr><th colspan="4" class="text-end">Total</th>
+              <th class="text-end">{{ p.harga_total | rupiah }}</th></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-clock-history me-1"></i>Riwayat Approval</div>
+      <ul class="list-group list-group-flush">
+        {% for log in riwayat %}
+        <li class="list-group-item small d-flex justify-content-between">
+          <span><span class="badge bg-{{ log.aksi | badge }} badge-status">{{ log.aksi }}</span>
+            oleh {{ user_map.get(log.spv_id, '-') }}
+            {% if log.catatan %}<br><span class="text-muted">{{ log.catatan }}</span>{% endif %}</span>
+          <span class="text-muted">{{ log.created_at | tanggal_waktu }}</span>
+        </li>
+        {% else %}
+        <li class="list-group-item small text-muted">Belum ada riwayat approval.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-diagram-3 me-1"></i>Alur &amp; Tindakan</div>
+      <div class="card-body">
+
+        {% if p.status == 'MENUNGGU_SPV' %}
+          {% if user.role in ['SPV', 'SUPERADMIN'] %}
+          <p class="small text-muted">Setujui dengan tanda tangan digital, atau kembalikan untuk revisi.</p>
+          <form method="post" action="/penawaran/{{ p.id }}/approval" id="formApprove">
+            <input type="hidden" name="aksi" value="APPROVE">
+            <input type="hidden" name="ttd_image_base64" id="ttdApproval">
+            <label class="small fw-semibold">Tanda tangan</label>
+            <canvas id="pad" class="signature-pad w-100" height="130"></canvas>
+            <div class="d-flex justify-content-between mt-1 mb-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearPad()">
+                <i class="bi bi-eraser me-1"></i>Hapus</button>
+              {% if user.ttd_image_path %}
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="pakaiTtdTersimpan()">
+                <i class="bi bi-download me-1"></i>Pakai ttd tersimpan</button>
+              {% endif %}
+            </div>
+            <textarea name="catatan" class="form-control form-control-sm mb-2" rows="2"
+                      placeholder="Catatan (opsional untuk approve)"></textarea>
+            <button class="btn btn-success btn-sm w-100" onclick="return isiTtd()">
+              <i class="bi bi-check2-circle me-1"></i>APPROVE</button>
+          </form>
+          <hr>
+          <form method="post" action="/penawaran/{{ p.id }}/approval">
+            <input type="hidden" name="aksi" value="REVISI">
+            <textarea name="catatan" class="form-control form-control-sm mb-2" rows="2" required
+                      placeholder="Catatan revisi (wajib)"></textarea>
+            <button class="btn btn-outline-danger btn-sm w-100">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan untuk Revisi</button>
+          </form>
+          {% else %}
+          <p class="small text-muted mb-0">Menunggu persetujuan SPV wilayah.</p>
+          {% endif %}
+
+        {% elif p.status == 'APPROVED' %}
+          <p class="small text-muted">Approved &middot; berlaku s/d <b>{{ p.valid_until | tanggal }}</b>.</p>
+          {% if user.role in ['SUPERADMIN', 'ADMIN_WILAYAH'] %}
+          <form method="post" action="/penawaran/{{ p.id }}/deal">
+            <label class="small fw-semibold">Tanggal PO</label>
+            <input type="date" name="tgl_po" class="form-control form-control-sm mb-2" required>
+            <label class="small fw-semibold">Nomor SPK</label>
+            <input type="text" name="no_spk" class="form-control form-control-sm mb-2" required>
+            <label class="small fw-semibold">Nilai PO (opsional)</label>
+            <input type="number" step="0.01" name="nilai_po" class="form-control form-control-sm mb-2">
+            <button class="btn btn-primary btn-sm w-100"><i class="bi bi-handshake me-1"></i>Catat DEAL</button>
+          </form>
+          {% endif %}
+
+        {% elif p.status in ['DEAL', 'BOOKING_PIC'] %}
+          <p class="small text-muted">Deal &middot; PO {{ p.tgl_po | tanggal }} &middot; SPK {{ p.no_spk or '-' }}</p>
+          {% if booking %}
+          <div class="border rounded p-2 small mb-2">
+            <b>Booking #{{ booking.id }}</b> &middot;
+            <span class="badge bg-{{ booking.status | badge }} badge-status">{{ booking.status }}</span><br>
+            PIC: {{ pic.nama if pic else '-' }}<br>
+            Tanggal tugas: {{ booking.tanggal_tugas | tanggal }}
+            {% if booking.tanggal_usulan %}<br>Usulan ulang: {{ booking.tanggal_usulan | tanggal }}{% endif %}
+            {% if booking.alasan_reschedule %}<br><span class="text-muted">{{ booking.alasan_reschedule }}</span>{% endif %}
+          </div>
+          {% if booking.status == 'DIAJUKAN' and user.role in ['PIC', 'SUPERADMIN', 'ADMIN_WILAYAH'] %}
+          <form method="post" action="/booking/{{ booking.id }}/respond" class="mb-2">
+            <input type="hidden" name="aksi" value="APPROVE">
+            <button class="btn btn-success btn-sm w-100"><i class="bi bi-check2 me-1"></i>Setujui jadwal</button>
+          </form>
+          <form method="post" action="/booking/{{ booking.id }}/respond">
+            <input type="hidden" name="aksi" value="RESCHEDULE">
+            <input type="date" name="tanggal_usulan" class="form-control form-control-sm mb-1" required>
+            <textarea name="alasan" class="form-control form-control-sm mb-1" rows="2" placeholder="Alasan reschedule"></textarea>
+            <button class="btn btn-outline-danger btn-sm w-100"><i class="bi bi-calendar-x me-1"></i>Ajukan reschedule</button>
+          </form>
+          {% endif %}
+          {% if booking.status in ['DISETUJUI', 'RESCHEDULE'] and user.role in ['SUPERADMIN', 'ADMIN_WILAYAH'] and not surat %}
+          <form method="post" action="/surat-tugas/dari-booking/{{ booking.id }}">
+            <button class="btn btn-primary btn-sm w-100"><i class="bi bi-file-earmark-plus me-1"></i>Buat Surat Tugas</button>
+          </form>
+          {% endif %}
+          {% else %}
+          {% if user.role in ['SUPERADMIN', 'ADMIN_WILAYAH'] %}
+          <form method="post" action="/booking/baru">
+            <input type="hidden" name="penawaran_id" value="{{ p.id }}">
+            <label class="small fw-semibold">PIC</label>
+            <select name="pic_id" class="form-select form-select-sm mb-2" required>
+              <option value="">— pilih PIC —</option>
+              {% for pc in pics %}<option value="{{ pc.id }}">{{ pc.nama }}{% if pc.keahlian %} — {{ pc.keahlian }}{% endif %}</option>{% endfor %}
+            </select>
+            <label class="small fw-semibold">Tanggal tugas</label>
+            <input type="date" name="tanggal_tugas" class="form-control form-control-sm mb-2" required>
+            <textarea name="catatan" class="form-control form-control-sm mb-2" rows="2" placeholder="Catatan tugas"></textarea>
+            <button class="btn btn-primary btn-sm w-100"><i class="bi bi-calendar-plus me-1"></i>Ajukan Booking PIC</button>
+          </form>
+          <div class="form-text">PIC belum ada? <a href="/pic">tambah master PIC</a>.</div>
+          {% endif %}
+          {% endif %}
+
+        {% elif p.status in ['SURAT_TUGAS', 'PELAKSANAAN', 'LHPP', 'SKLK3', 'INVOICE', 'SELESAI'] %}
+          {% if surat %}
+          <div class="border rounded p-2 small mb-2">
+            <b>{{ surat.nomor }}</b> &middot;
+            <span class="badge bg-{{ surat.status | badge }} badge-status">{{ surat.status }}</span><br>
+            Tanggal tugas: {{ surat.tanggal_tugas | tanggal }}
+            {% if surat.pdf_path %}
+            <a href="/surat-tugas/{{ surat.id }}/pdf" class="btn btn-sm btn-outline-danger w-100 mt-2">
+              <i class="bi bi-file-earmark-pdf me-1"></i>Unduh / Cetak PDF</a>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% if not lhpp and user.role in ['SUPERADMIN', 'ADMIN_WILAYAH'] %}
+          <form method="post" action="/lhpp/siapkan/{{ p.id }}">
+            <button class="btn btn-outline-primary btn-sm w-100">
+              <i class="bi bi-journal-plus me-1"></i>Siapkan LHPP (deadline 7 hari)</button>
+          </form>
+          {% endif %}
+
+          {% if lhpp %}
+          <div class="border rounded p-2 small mb-2">
+            <b>LHPP</b> &middot;
+            {% if lhpp.is_uploaded %}<span class="badge bg-success badge-status">TERUNGGAH</span>
+            {% else %}<span class="badge bg-danger badge-status">BELUM</span>{% endif %}<br>
+            Deadline: {{ lhpp.deadline_at | tanggal }}<br>
+            Selesai: {{ lhpp.tanggal_selesai | tanggal }}<br>
+            Reminder terkirim: {{ lhpp.reminder_count }}
+          </div>
+          {% if user.role in ['SUPERADMIN', 'ADMIN_WILAYAH'] %}
+          <form method="post" action="/lhpp/{{ lhpp.id }}/update" class="mb-2">
+            <label class="small fw-semibold">Tanggal selesai</label>
+            <input type="date" name="tanggal_selesai" class="form-control form-control-sm mb-1"
+                   value="{{ lhpp.tanggal_selesai or '' }}">
+            <div class="form-check small">
+              <input class="form-check-input" type="checkbox" name="chk_lhpp" id="ck1"
+                     {% if 'true' in lhpp.checklist %}checked{% endif %}>
+              <label class="form-check-label" for="ck1">LHPP eksternal terunggah</label>
+            </div>
+            <div class="form-check small mb-1">
+              <input class="form-check-input" type="checkbox" name="chk_sklk3" id="ck2"
+                     {% if lhpp.checklist.count('true') > 1 %}checked{% endif %}>
+              <label class="form-check-label" for="ck2">SKLK3 terbit</label>
+            </div>
+            <div class="form-check small mb-1">
+              <input class="form-check-input" type="checkbox" name="is_uploaded" id="ck3"
+                     {% if lhpp.is_uploaded %}checked{% endif %}>
+              <label class="form-check-label" for="ck3">Tandai sudah diunggah</label>
+            </div>
+            <textarea name="catatan" class="form-control form-control-sm mb-1" rows="2"
+                      placeholder="Catatan LHPP">{{ lhpp.catatan }}</textarea>
+            <button class="btn btn-outline-primary btn-sm w-100">Simpan LHPP</button>
+          </form>
+          {% endif %}
+          {% endif %}
+
+          {% if user.role in ['SUPERADMIN', 'ADMIN_WILAYAH'] and p.status in ['LHPP', 'SKLK3'] %}
+          <form method="post" action="/sklk3/{{ p.id }}" class="mb-2">
+            <label class="small fw-semibold">Nomor SKLK3</label>
+            <input type="text" name="nomor" class="form-control form-control-sm mb-1"
+                   value="{{ sklk3.nomor if sklk3 else '' }}">
+            <label class="small fw-semibold">Tanggal muncul</label>
+            <input type="date" name="tanggal_muncul" class="form-control form-control-sm mb-1"
+                   value="{{ sklk3.tanggal_muncul or '' }}">
+            <input type="text" name="catatan" class="form-control form-control-sm mb-1" placeholder="Catatan">
+            <button class="btn btn-outline-primary btn-sm w-100"><i class="bi bi-save me-1"></i>Simpan SKLK3</button>
+          </form>
+          {% endif %}
+
+          {% if user.role in ['SUPERADMIN', 'ADMIN_WILAYAH', 'KEUANGAN'] and not invoice and p.status in ['SKLK3', 'LHPP'] %}
+          <form method="post" action="/invoice/{{ p.id }}/terbit">
+            <label class="small fw-semibold">Tanggal invoice <span class="text-muted">(kosong = hari ini)</span></label>
+            <input type="date" name="tanggal" class="form-control form-control-sm mb-1">
+            <label class="small fw-semibold">Nominal <span class="text-muted">(kosong = total penawaran)</span></label>
+            <input type="number" step="0.01" name="nominal" class="form-control form-control-sm mb-1"
+                   placeholder="{{ p.harga_total }}">
+            <input type="text" name="keterangan" class="form-control form-control-sm mb-1" placeholder="Keterangan">
+            <button class="btn btn-success btn-sm w-100"><i class="bi bi-receipt me-1"></i>Terbitkan Invoice</button>
+          </form>
+          {% endif %}
+
+          {% if invoice %}
+          <div class="border rounded p-2 small mb-2">
+            <b>{{ invoice.nomor }}</b> &middot;
+            <span class="badge bg-{{ invoice.status | badge }} badge-status">{{ invoice.status }}</span><br>
+            Tanggal: {{ invoice.tanggal | tanggal }}<br>
+            Nominal: {{ invoice.nominal | rupiah }}<br>
+            {% if invoice.faktur_nomor %}Faktur: {{ invoice.faktur_nomor }}{% endif %}
+          </div>
+          {% endif %}
+
+          {% if invoice and invoice.status == 'TERBIT' and user.role in ['KEUANGAN', 'SUPERADMIN'] %}
+          <form method="post" action="/invoice/{{ invoice.id }}/faktur">
+            <label class="small fw-semibold">Nomor Faktur</label>
+            <input type="text" name="faktur_nomor" class="form-control form-control-sm mb-1" required>
+            <button class="btn btn-success btn-sm w-100"><i class="bi bi-check2-circle me-1"></i>Catat Faktur (Selesai)</button>
+          </form>
+          {% endif %}
+
+        {% else %}
+        <p class="small text-muted mb-0">Tidak ada tindakan tersedia untuk status {{ p.status }}.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-building me-1"></i>Data Klien</div>
+      <div class="card-body small">
+        <div class="fw-semibold">{{ klien.nama_perusahaan if klien else '-' }}</div>
+        {{ klien.alamat if klien else '' }}<br>
+        {{ klien.kota if klien else '' }} {{ klien.kodepos if klien else '' }}<br>
+        {% if klien and klien.pic %}PIC: {{ klien.pic }} / {{ klien.no_pic }}{% endif %}<br>
+        {% if klien and klien.email %}{{ klien.email }}{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ---- kanvas tanda tangan ----
+const pad = document.getElementById('pad');
+if (pad) {
+  const ctx = pad.getContext('2d');
+  let drawing = false;
+  let signed = false;
+
+  function fit() {
+    const r = pad.getBoundingClientRect();
+    pad.width = r.width;
+    pad.height = 130;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, pad.width, pad.height);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#12283d';
+  }
+  fit();
+  window.addEventListener('resize', () => { const c = pad.toDataURL(); fit(); });
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, pad.width, pad.height);
+
+  const pos = e => {
+    const r = pad.getBoundingClientRect();
+    return { x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left,
+             y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top };
+  };
+  const start = e => { drawing = true; signed = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); };
+  const move = e => { if (!drawing) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); };
+  const end = () => { drawing = false; };
+
+  pad.addEventListener('mousedown', start);
+  pad.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', end);
+  pad.addEventListener('touchstart', start, { passive: false });
+  pad.addEventListener('touchmove', move, { passive: false });
+  pad.addEventListener('touchend', end);
+
+  window.clearPad = () => {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, pad.width, pad.height);
+    signed = false;
+  };
+  window.isiTtd = () => {
+    if (!signed) { alert('Tanda tangan masih kosong.'); return false; }
+    document.getElementById('ttdApproval').value = pad.toDataURL('image/png');
+    return true;
+  };
+  window.pakaiTtdTersimpan = async () => {
+    const r = await fetch('/profil/ttd.png');
+    if (!r.ok) { alert('Tanda tangan tersimpan tidak bisa dibaca.'); return; }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, pad.width, pad.height);
+      const s = Math.min(pad.width / img.width, pad.height / img.height);
+      ctx.drawImage(img, 10, 10, img.width * s, img.height * s);
+      signed = true;
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+}
+</script>
+{% endblock %}

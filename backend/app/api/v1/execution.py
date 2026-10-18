@@ -284,6 +284,10 @@ def approve_surat_tugas(
         raise HTTPException(status_code=404, detail="Surat tugas tidak ditemukan")
     if not is_pusat(user) and st.wilayah_id != user.wilayah_id:
         raise HTTPException(status_code=403, detail="Bukan surat tugas wilayah Anda")
+    if SuratTugasStatus(st.status) != SuratTugasStatus.MENUNGGU_SPV:
+        raise HTTPException(
+            status_code=400, detail=f"Surat tugas sudah berstatus {st.status}, tidak dapat ditandatangani ulang"
+        )
 
     ttd_path = save_base64_image(payload.get("ttd_image_base64", ""), "ttd", f"spv{user.id}") or user.ttd_image_path
     if not ttd_path:

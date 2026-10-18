@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Master PIC{% endblock %}
+{% block header %}Master PIC{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-person-badge me-1"></i>Daftar PIC ({{ rows | length }})</div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Nama</th><th>Keahlian</th><th>No. HP</th><th>Email</th><th>Telegram</th><th>Wilayah</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr>
+              <td class="fw-semibold">{{ r.nama }}</td>
+              <td class="small">{{ r.keahlian or '-' }}</td>
+              <td class="small">{{ r.no_hp or '-' }}</td>
+              <td class="small">{{ r.email or '-' }}</td>
+              <td class="small">{{ r.telegram_chat_id or '-' }}</td>
+              <td class="small">{{ wilayah_map.get(r.wilayah_id, '-') }}</td>
+              <td>{% if r.is_aktif %}<span class="badge bg-success badge-status">AKTIF</span>
+                  {% else %}<span class="badge bg-secondary badge-status">NONAKTIF</span>{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-4">Belum ada PIC.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% if user.role in ['SUPERADMIN', 'ADMIN_WILAYAH'] %}
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-person-plus me-1"></i>Tambah PIC</div>
+      <div class="card-body">
+        <form method="post" action="/pic/baru">
+          <label class="form-label small fw-semibold">Nama <span class="text-danger">*</span></label>
+          <input type="text" name="nama" class="form-control form-control-sm mb-2" required>
+          <label class="form-label small fw-semibold">Keahlian / Jabatan</label>
+          <input type="text" name="keahlian" class="form-control form-control-sm mb-2"
+                 placeholder="contoh: Ahli K3 Konstruksi">
+          <label class="form-label small fw-semibold">No. HP</label>
+          <input type="text" name="no_hp" class="form-control form-control-sm mb-2">
+          <label class="form-label small fw-semibold">Email</label>
+          <input type="email" name="email" class="form-control form-control-sm mb-2">
+          <label class="form-label small fw-semibold">Telegram Chat ID</label>
+          <input type="text" name="telegram_chat_id" class="form-control form-control-sm mb-2"
+                 placeholder="untuk notifikasi penjadwalan">
+          <button class="btn btn-primary btn-sm w-100 mt-2"><i class="bi bi-save me-1"></i>Simpan PIC</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

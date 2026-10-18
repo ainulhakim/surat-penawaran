@@ -1,0 +1,125 @@
+:root {
+  --sp-primary: #1f4e79;
+  --sp-accent: #c8a35a;
+}
+
+body {
+  background: #f4f6f9;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+.sp-sidebar {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #16324f 0%, #1f4e79 100%);
+}
+
+.sp-sidebar .brand {
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: .3px;
+  padding: 1.1rem 1rem .6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+}
+
+.sp-sidebar .brand small {
+  display: block;
+  font-weight: 400;
+  color: #b9cbe0;
+  font-size: .74rem;
+}
+
+.sp-sidebar .nav-link {
+  color: #d6e2ef;
+  border-radius: .4rem;
+  margin: .12rem .5rem;
+  padding: .5rem .75rem;
+  font-size: .92rem;
+}
+
+.sp-sidebar .nav-link:hover {
+  background: rgba(255, 255, 255, .1);
+  color: #fff;
+}
+
+.sp-sidebar .nav-link.active {
+  background: var(--sp-accent);
+  color: #1b1b1b;
+  font-weight: 600;
+}
+
+.sp-sidebar .nav-section {
+  color: #8fb0d1;
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: .85rem 1rem .2rem;
+}
+
+.sp-topbar {
+  background: #fff;
+  border-bottom: 1px solid #e3e8ef;
+}
+
+.card {
+  border: 1px solid #e6ebf1;
+  border-radius: .6rem;
+  box-shadow: 0 1px 2px rgba(21, 44, 71, .05);
+}
+
+.card-header {
+  background: #fbfcfe;
+  border-bottom: 1px solid #eef2f6;
+  font-weight: 600;
+}
+
+.stat-card .stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--sp-primary);
+}
+
+.stat-card .stat-label {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #6b7d92;
+}
+
+.table > :not(caption) > * > * {
+  padding: .55rem .6rem;
+}
+
+.signature-pad {
+  border: 1px dashed #9db3c8;
+  border-radius: .5rem;
+  background: #fff;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #16324f 0%, #1f4e79 55%, #2c6ea8 100%);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+}
+
+.badge-status {
+  font-size: .72rem;
+  letter-spacing: .02em;
+}
+
+.rahasia-note {
+  background: #fff6e6;
+  border-left: 4px solid var(--sp-accent);
+  padding: .6rem .8rem;
+  border-radius: .35rem;
+  font-size: .86rem;
+}

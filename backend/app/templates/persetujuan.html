@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Persetujuan SPV{% endblock %}
+{% block header %}Persetujuan SPV{% endblock %}
+{% block content %}
+
+<div class="card mb-3">
+  <div class="card-header"><i class="bi bi-file-earmark-check me-1"></i>Penawaran Menunggu Approval ({{ rows | length }})</div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Nomor</th><th>Klien</th><th>Perihal</th><th class="text-end">Nilai</th>
+          <th>Wilayah</th><th>Nego</th><th class="text-end">Aksi</th></tr>
+      </thead>
+      <tbody>
+        {% for p, c in rows %}
+        <tr>
+          <td class="fw-semibold">{{ p.nomor_surat }}</td>
+          <td class="small">{{ c.nama_perusahaan }}<br><span class="text-muted">{{ c.kota }}</span></td>
+          <td class="small">{{ p.perihal }}</td>
+          <td class="text-end small">{{ p.harga_total | rupiah }}</td>
+          <td class="small">{{ wilayah_map.get(p.wilayah_id, '-') }}</td>
+          <td>{% if p.is_nego %}<span class="badge bg-warning text-dark badge-status">NEGO</span>{% endif %}</td>
+          <td class="text-end">
+            <a href="/penawaran/{{ p.id }}" class="btn btn-sm btn-primary">
+              <i class="bi bi-pen me-1"></i>Review &amp; Tanda Tangan</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">Tidak ada penawaran menunggu.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><i class="bi bi-clipboard-check me-1"></i>Surat Tugas Menunggu Tanda Tangan ({{ surat_rows | length }})</div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Nomor</th><th>PIC</th><th>Klien</th><th>Tanggal Tugas</th><th class="text-end">Aksi</th></tr>
+      </thead>
+      <tbody>
+        {% for st, pic, c in surat_rows %}
+        <tr>
+          <td class="fw-semibold">{{ st.nomor }}</td>
+          <td class="small">{{ pic.nama }}</td>
+          <td class="small">{{ c.nama_perusahaan }}<br><span class="text-muted">{{ c.kota }}</span></td>
+          <td class="small">{{ st.tanggal_tugas | tanggal }}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalTtd"
+                    onclick="siapkanTtd({{ st.id }}, '{{ st.nomor }}')">
+              <i class="bi bi-pen me-1"></i>Setujui &amp; Tanda Tangan</button>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Tidak ada surat tugas menunggu.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade" id="modalTtd" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" id="formTtdSt">
+      <div class="modal-header py-2">
+        <h6 class="modal-title">Tanda Tangan Surat Tugas <span id="stNomor"></span></h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="ttd_image_base64" id="stTtd">
+        <canvas id="padSt" class="signature-pad w-100" height="130"></canvas>
+        <div class="d-flex justify-content-end mt-1">
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearPadSt()">
+            <i class="bi bi-eraser me-1"></i>Hapus</button>
+        </div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-sm btn-success" onclick="return isiTtdSt()">
+          <i class="bi bi-check2-circle me-1"></i>Setujui</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function siapkanTtd(id, nomor) {
+  document.getElementById('formTtdSt').action = '/surat-tugas/' + id + '/approve';
+  document.getElementById('stNomor').textContent = nomor;
+}
+const padEl = document.getElementById('padSt');
+const pctx = padEl.getContext('2d');
+let pdrawing = false, psigned = false;
+
+function pfit() {
+  const r = padEl.getBoundingClientRect();
+  padEl.width = r.width; padEl.height = 130;
+  pctx.fillStyle = '#fff'; pctx.fillRect(0, 0, padEl.width, padEl.height);
+  pctx.lineWidth = 2; pctx.lineCap = 'round'; pctx.strokeStyle = '#12283d';
+}
+document.getElementById('modalTtd').addEventListener('shown.bs.modal', () => { pfit(); psigned = false; });
+window.addEventListener('resize', () => { if (padEl.offsetParent) pfit(); });
+
+const ppos = e => {
+  const r = padEl.getBoundingClientRect();
+  return { x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left,
+           y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top };
+};
+padEl.addEventListener('mousedown', e => { pdrawing = true; psigned = true; const p = ppos(e); pctx.beginPath(); pctx.moveTo(p.x, p.y); e.preventDefault(); });
+padEl.addEventListener('mousemove', e => { if (!pdrawing) return; const p = ppos(e); pctx.lineTo(p.x, p.y); pctx.stroke(); e.preventDefault(); });
+window.addEventListener('mouseup', () => pdrawing = false);
+padEl.addEventListener('touchstart', e => { pdrawing = true; psigned = true; const p = ppos(e); pctx.beginPath(); pctx.moveTo(p.x, p.y); e.preventDefault(); }, { passive: false });
+padEl.addEventListener('touchmove', e => { if (!pdrawing) return; const p = ppos(e); pctx.lineTo(p.x, p.y); pctx.stroke(); e.preventDefault(); }, { passive: false });
+padEl.addEventListener('touchend', () => pdrawing = false);
+
+window.clearPadSt = () => { pctx.fillStyle = '#fff'; pctx.fillRect(0, 0, padEl.width, padEl.height); psigned = false; };
+window.isiTtdSt = () => {
+  if (!psigned) { alert('Tanda tangan masih kosong.'); return false; }
+  document.getElementById('stTtd').value = padEl.toDataURL('image/png');
+  return true;
+};
+</script>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Master Data{% endblock %}
+{% block header %}Master Data &mdash; Kategori, Bidang, Objek{% endblock %}
+{% block content %}
+<div class="rahasia-note mb-3">
+  <b>Kategori → Bidang → Objek</b> dikelola Pusat (SUPERADMIN) dan dipakai sebagai pilihan uraian item penawaran.
+  Harga tetap diisi manual per wilayah.
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-tags me-1"></i>Kategori ({{ kategori | length }})</div>
+      <ul class="list-group list-group-flush">
+        {% for k in kategori %}
+        <li class="list-group-item small py-2 d-flex justify-content-between">
+          <span><b>{{ k.kode }}</b> &middot; {{ k.nama }}</span>
+          {% if k.is_active %}<span class="badge bg-success badge-status">aktif</span>
+          {% else %}<span class="badge bg-secondary badge-status">off</span>{% endif %}
+        </li>
+        {% else %}<li class="list-group-item small text-muted">Belum ada kategori.</li>{% endfor %}
+      </ul>
+      {% if user.role == 'SUPERADMIN' %}
+      <div class="card-body border-top">
+        <form method="post" action="/master/kategori">
+          <div class="row g-1">
+            <div class="col-4"><input type="text" name="kode" class="form-control form-control-sm" placeholder="Kode" required></div>
+            <div class="col-8"><input type="text" name="nama" class="form-control form-control-sm" placeholder="Nama kategori" required></div>
+            <div class="col-12"><input type="text" name="deskripsi" class="form-control form-control-sm" placeholder="Deskripsi"></div>
+          </div>
+          <button class="btn btn-sm btn-outline-primary w-100 mt-2"><i class="bi bi-plus-lg me-1"></i>Tambah Kategori</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-diagram-2 me-1"></i>Bidang ({{ bidang | length }})</div>
+      <ul class="list-group list-group-flush">
+        {% for b in bidang %}
+        <li class="list-group-item small py-2 d-flex justify-content-between">
+          <span><b>{{ b.kode }}</b> &middot; {{ b.nama }}</span>
+          <span class="text-muted">{{ kat_map.get(b.kategori_id, '-') }}</span>
+        </li>
+        {% else %}<li class="list-group-item small text-muted">Belum ada bidang.</li>{% endfor %}
+      </ul>
+      {% if user.role == 'SUPERADMIN' %}
+      <div class="card-body border-top">
+        <form method="post" action="/master/bidang">
+          <div class="row g-1">
+            <div class="col-12">
+              <select name="kategori_id" class="form-select form-select-sm" required>
+                <option value="">— pilih kategori —</option>
+                {% for k in kategori %}<option value="{{ k.id }}">{{ k.nama }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-4"><input type="text" name="kode" class="form-control form-control-sm" placeholder="Kode" required></div>
+            <div class="col-8"><input type="text" name="nama" class="form-control form-control-sm" placeholder="Nama bidang" required></div>
+          </div>
+          <button class="btn btn-sm btn-outline-primary w-100 mt-2"><i class="bi bi-plus-lg me-1"></i>Tambah Bidang</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-box-seam me-1"></i>Objek ({{ objek | length }})</div>
+      <ul class="list-group list-group-flush">
+        {% for o in objek %}
+        <li class="list-group-item small py-2 d-flex justify-content-between">
+          <span><b>{{ o.kode }}</b> &middot; {{ o.nama }}</span>
+          <span class="text-muted">{{ bid_map.get(o.bidang_id, '-') }} / {{ o.satuan }}</span>
+        </li>
+        {% else %}<li class="list-group-item small text-muted">Belum ada objek.</li>{% endfor %}
+      </ul>
+      {% if user.role == 'SUPERADMIN' %}
+      <div class="card-body border-top">
+        <form method="post" action="/master/objek">
+          <div class="row g-1">
+            <div class="col-12">
+              <select name="bidang_id" class="form-select form-select-sm" required>
+                <option value="">— pilih bidang —</option>
+                {% for b in bidang %}<option value="{{ b.id }}">{{ b.nama }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-4"><input type="text" name="kode" class="form-control form-control-sm" placeholder="Kode" required></div>
+            <div class="col-5"><input type="text" name="nama" class="form-control form-control-sm" placeholder="Nama objek" required></div>
+            <div class="col-3"><input type="text" name="satuan" class="form-control form-control-sm" value="unit"></div>
+          </div>
+          <button class="btn btn-sm btn-outline-primary w-100 mt-2"><i class="bi bi-plus-lg me-1"></i>Tambah Objek</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

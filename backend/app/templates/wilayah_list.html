@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Wilayah{% endblock %}
+{% block header %}Wilayah{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-geo-alt me-1"></i>Daftar Wilayah ({{ rows | length }})</div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Kode</th><th>Nama</th><th>Kota / Provinsi</th><th>Kontak</th>
+              <th class="text-end">Klien</th><th>Status</th>{% if is_pusat %}<th class="text-end">Aksi</th>{% endif %}</tr>
+          </thead>
+          <tbody>
+            {% for w in rows %}
+            <tr>
+              <td class="fw-semibold">{{ w.kode }}</td>
+              <td class="small">{{ w.nama }}</td>
+              <td class="small">{{ w.kota }}{% if w.provinsi %}<br><span class="text-muted">{{ w.provinsi }} {{ w.kodepos }}</span>{% endif %}</td>
+              <td class="small">{{ w.telepon or '-' }}</td>
+              <td class="text-end small">{{ jumlah.get(w.id, 0) }}</td>
+              <td>{% if w.is_active %}<span class="badge bg-success badge-status">AKTIF</span>
+                  {% else %}<span class="badge bg-secondary badge-status">NONAKTIF</span>{% endif %}</td>
+              {% if is_pusat %}
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalWilayah"
+                        onclick='isiWilayah({{ {"id": w.id, "kode": w.kode, "nama": w.nama, "provinsi": w.provinsi,
+                                               "kota": w.kota, "kodepos": w.kodepos, "alamat": w.alamat,
+                                               "telepon": w.telepon} | tojson }})'>
+                  <i class="bi bi-pencil"></i></button>
+                <form method="post" action="/wilayah/{{ w.id }}/hapus" class="d-inline"
+                      onsubmit="return confirm('Nonaktifkan wilayah {{ w.nama }}?')">
+                  <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-4">Belum ada wilayah.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% if is_pusat %}
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-plus-circle me-1"></i>Tambah Wilayah</div>
+      <div class="card-body">
+        <form method="post" action="/wilayah">
+          <div class="row g-2">
+            <div class="col-4"><input type="text" name="kode" class="form-control form-control-sm"
+                 placeholder="Kode" required maxlength="20"></div>
+            <div class="col-8"><input type="text" name="nama" class="form-control form-control-sm"
+                 placeholder="Nama wilayah" required></div>
+            <div class="col-6"><input type="text" name="kota" class="form-control form-control-sm" placeholder="Kota"></div>
+            <div class="col-6"><input type="text" name="provinsi" class="form-control form-control-sm" placeholder="Provinsi"></div>
+            <div class="col-4"><input type="text" name="kodepos" class="form-control form-control-sm" placeholder="Kodepos"></div>
+            <div class="col-8"><input type="text" name="telepon" class="form-control form-control-sm" placeholder="Telepon"></div>
+            <div class="col-12"><textarea name="alamat" class="form-control form-control-sm" rows="2" placeholder="Alamat kantor"></textarea></div>
+          </div>
+          <button class="btn btn-primary btn-sm w-100 mt-2"><i class="bi bi-save me-1"></i>Simpan Wilayah</button>
+        </form>
+        <div class="form-text mt-2">Kode wilayah dipakai pada penomoran surat (contoh <b>JTG</b> → 001/SP/JTG/X/2026).</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="modal fade" id="modalWilayah" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" id="formWilayah">
+      <div class="modal-header py-2">
+        <h6 class="modal-title">Ubah Wilayah</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2">
+          <div class="col-4"><label class="form-label small">Kode</label>
+            <input type="text" name="kode" id="wKode" class="form-control form-control-sm" required></div>
+          <div class="col-8"><label class="form-label small">Nama</label>
+            <input type="text" name="nama" id="wNama" class="form-control form-control-sm" required></div>
+          <div class="col-6"><label class="form-label small">Kota</label>
+            <input type="text" name="kota" id="wKota" class="form-control form-control-sm"></div>
+          <div class="col-6"><label class="form-label small">Provinsi</label>
+            <input type="text" name="provinsi" id="wProv" class="form-control form-control-sm"></div>
+          <div class="col-4"><label class="form-label small">Kodepos</label>
+            <input type="text" name="kodepos" id="wPos" class="form-control form-control-sm"></div>
+          <div class="col-8"><label class="form-label small">Telepon</label>
+            <input type="text" name="telepon" id="wTel" class="form-control form-control-sm"></div>
+          <div class="col-12"><label class="form-label small">Alamat</label>
+            <textarea name="alamat" id="wAlamat" class="form-control form-control-sm" rows="2"></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-sm btn-primary">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function isiWilayah(w) {
+  document.getElementById('formWilayah').action = '/wilayah/' + w.id + '/edit';
+  document.getElementById('wKode').value = w.kode || '';
+  document.getElementById('wNama').value = w.nama || '';
+  document.getElementById('wKota').value = w.kota || '';
+  document.getElementById('wProv').value = w.provinsi || '';
+  document.getElementById('wPos').value = w.kodepos || '';
+  document.getElementById('wTel').value = w.telepon || '';
+  document.getElementById('wAlamat').value = w.alamat || '';
+}
+</script>
+{% endblock %}

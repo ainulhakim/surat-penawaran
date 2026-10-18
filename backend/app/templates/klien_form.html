@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Ubah' if row else 'Klien Baru' }}{% endblock %}
+{% block header %}{{ 'Ubah Klien' if row else 'Klien Baru' }}{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-building me-1"></i>Data Klien</div>
+      <div class="card-body">
+        <form method="post" action="{{ '/klien/%d/edit' % row.id if row else '/klien/baru' }}">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label small fw-semibold">Nama Perusahaan <span class="text-danger">*</span></label>
+              <input type="text" name="nama_perusahaan" class="form-control" required minlength="2"
+                     value="{{ row.nama_perusahaan if row else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Email</label>
+              <input type="email" name="email" class="form-control" value="{{ row.email if row else '' }}"
+                     placeholder="email perusahaan">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">No. Telepon</label>
+              <input type="text" name="no_telpon" class="form-control" value="{{ row.no_telpon if row else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Nama PIC</label>
+              <input type="text" name="pic" class="form-control" value="{{ row.pic if row else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">No. HP PIC</label>
+              <input type="text" name="no_pic" class="form-control" value="{{ row.no_pic if row else '' }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Alamat</label>
+              <textarea name="alamat" class="form-control" rows="2">{{ row.alamat if row else '' }}</textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Kota</label>
+              <input type="text" name="kota" class="form-control" value="{{ row.kota if row else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Provinsi</label>
+              <input type="text" name="provinsi" class="form-control" value="{{ row.provinsi if row else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Kode Pos</label>
+              <input type="text" name="kodepos" class="form-control" value="{{ row.kodepos if row else '' }}">
+            </div>
+          </div>
+          <div class="mt-4 d-flex gap-2">
+            <button class="btn btn-primary btn-sm"><i class="bi bi-save me-1"></i>Simpan</button>
+            <a href="/klien" class="btn btn-outline-secondary btn-sm">Batal</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="rahasia-note mb-3">
+      <b>Kunci unik klien</b><br>
+      Kombinasi <i>nama perusahaan + email + kota + kodepos</i> tidak boleh sama.
+      Bila sama, server menolak dengan pesan <b>409</b> dan menyebut ID klien yang sudah ada.
+    </div>
+    {% if lock %}
+    <div class="alert alert-danger small mb-0">
+      <b><i class="bi bi-lock-fill me-1"></i>Klien terkunci</b><br>
+      Wilayah: {{ wilayah_map.get(lock.wilayah_id, lock.wilayah_id) }}<br>
+      Berlaku sampai: {{ lock.expires_at | tanggal_waktu }}<br>
+      Alasan: {{ lock.reason }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

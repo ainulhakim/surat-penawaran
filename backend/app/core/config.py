@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "/app/uploads"
     AUTO_CREATE_TABLES: bool = True
 
+    # Sesi UI (cookie HttpOnly). Set COOKIE_SECURE=true bila sudah lewat HTTPS (Cloudflare Tunnel).
+    COOKIE_SECURE: bool = False
+    COOKIE_NAME: str = "sp_session"
+
 
 @lru_cache
 def get_settings() -> Settings:
