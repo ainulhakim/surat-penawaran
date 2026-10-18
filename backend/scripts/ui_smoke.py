@@ -14,7 +14,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from http.cookiejar import CookieJar
+from http.cookiejar import CookieJar, DefaultCookiePolicy
 
 BASE = "http://127.0.0.1:8003"
 
@@ -43,7 +43,9 @@ class Ui:
     """Sesi browser sederhana: cookie jar + follow redirect."""
 
     def __init__(self):
-        self.jar = CookieJar()
+        # secure_protocols di-set agar cookie "Secure" (COOKIE_SECURE=true di produksi)
+        # tetap dikirim saat smoke test dijalankan lewat http://127.0.0.1:8003
+        self.jar = CookieJar(DefaultCookiePolicy(secure_protocols=("http", "https")))
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(self.jar),
             urllib.request.HTTPRedirectHandler(),
