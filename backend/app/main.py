@@ -6,11 +6,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 from app.api.v1 import api_router
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
+from app.services import branding
 from app.services.seed import seed_initial_data
 from app.web.deps import Forbidden, NotAuthenticated
 from app.web.routes import TEMPLATE_DIR, web_router
@@ -43,6 +45,13 @@ app = FastAPI(
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
 )
+
+@app.middleware("http")
+async def _branding_middleware(request: Request, call_next):
+    """Sisipkan branding efektif (DB -> fallback .env) ke setiap request."""
+    request.state.brand = await run_in_threadpool(branding.get_brand)
+    return await call_next(request)
+
 
 app.add_middleware(
     CORSMiddleware,

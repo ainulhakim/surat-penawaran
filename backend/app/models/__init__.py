@@ -1,5 +1,5 @@
 from app.models.client import Client, ClientLock
-from app.models.core import AuditLog, NotificationTarget, User, Wilayah
+from app.models.core import AppSetting, AuditLog, NotificationTarget, User, Wilayah
 from app.models.enums import (
     ApprovalAction,
     BookingStatus,
@@ -17,6 +17,7 @@ from app.models.penawaran import ApprovalLog, Penawaran, PenawaranItem
 __all__ = [
     "ApprovalAction",
     "ApprovalLog",
+    "AppSetting",
     "AuditLog",
     "Bidang",
     "BookingStatus",

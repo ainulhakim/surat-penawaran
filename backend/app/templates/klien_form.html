@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Ubah' if row else 'Klien Baru' }}{% endblock %}
+{% block title %}{{ 'Ubah' if row else 'Klien Baru' }} &middot; {{ brand.brand_doc_title }}{% endblock %}
 {% block header %}{{ 'Ubah Klien' if row else 'Klien Baru' }}{% endblock %}
 {% block content %}
 <div class="row">

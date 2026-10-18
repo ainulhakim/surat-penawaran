@@ -70,6 +70,7 @@ from app.schemas.master import BidangCreate, KategoriCreate, ObjekCreate
 from app.schemas.penawaran import ApprovalIn, DealIn, ItemIn, PenawaranCreate, PenawaranUpdate
 from app.schemas.user import UserCreate, UserUpdate
 from app.schemas.wilayah import WilayahCreate, WilayahUpdate
+from app.services import branding
 from app.web.deps import (
     ADMIN_ROLES,
     Forbidden,
@@ -196,6 +197,7 @@ def render(
     base = {
         "request": request,
         "user": user,
+        "brand": getattr(request.state, "brand", None) or branding.defaults(),
         "app_name": settings.APP_NAME,
         "msg": request.query_params.get("msg"),
         "err": request.query_params.get("err"),
@@ -214,6 +216,7 @@ def render_error(request: Request, kode: int, pesan: str, user: User | None = No
         {
             "request": request,
             "user": user,
+            "brand": getattr(request.state, "brand", None) or branding.defaults(),
             "app_name": settings.APP_NAME,
             "kode": kode,
             "pesan": pesan,
@@ -880,8 +883,6 @@ def daftar_pic(
     stmt = select(Pic).order_by(Pic.nama)
     if not is_pusat(user):
         stmt = stmt.where(Pic.wilayah_id == user.wilayah_id)
-    from app.services import locks  # noqa: F401  (menjaga import konsisten)
-
     return render(
         request,
         "pic_list.html",
@@ -1477,3 +1478,51 @@ def edit_pengguna(
         lambda: users_api.update_user(user_id, payload, actor=actor, db=db), "/pengguna", msg="Pengguna diperbarui"
     )
     return resp
+
+
+# --------------------------------------------------------------------------- #
+# Pengaturan / Branding (SUPERADMIN)
+# --------------------------------------------------------------------------- #
+
+
+@web_router.get("/pengaturan")
+def halaman_pengaturan(
+    request: Request,
+    user: User = Depends(web_roles(UserRole.SUPERADMIN)),
+    db: Session = Depends(get_db),
+):
+    return render(
+        request,
+        "pengaturan.html",
+        user=user,
+        nav="pengaturan",
+        brand_now=branding.get_brand(force=True),
+        brand_default=branding.defaults(),
+    )
+
+
+@web_router.post("/pengaturan")
+def simpan_pengaturan(
+    request: Request,
+    brand_name: str = Form(""),
+    brand_subtitle: str = Form(""),
+    brand_footer: str = Form(""),
+    brand_doc_title: str = Form(""),
+    reset: str = Form(""),
+    user: User = Depends(web_roles(UserRole.SUPERADMIN)),
+    db: Session = Depends(get_db),
+):
+    if reset in {"on", "true", "1"}:
+        branding.simpan_brand(db, {k: "" for k in branding.BRAND_KEYS}, user.id)
+        return back("/pengaturan", msg="Branding dikembalikan ke nilai default (.env)")
+
+    nilai = {
+        "brand_name": brand_name,
+        "brand_subtitle": brand_subtitle,
+        "brand_footer": brand_footer,
+        "brand_doc_title": brand_doc_title,
+    }
+    if not brand_name.strip():
+        return back("/pengaturan", err="Nama aplikasi wajib diisi")
+    branding.simpan_brand(db, nilai, user.id)
+    return back("/pengaturan", msg="Pengaturan branding tersimpan")

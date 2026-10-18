@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Pengaturan &middot; {{ brand.brand_doc_title }}{% endblock %}
+{% block header %}Pengaturan Aplikasi{% endblock %}
+{% block content %}
+<div class="rahasia-note mb-3">
+  <i class="bi bi-info-circle me-1"></i>Nilai di sini langsung dipakai di <b>judul halaman login</b>,
+  <b>sidebar</b>, dan <b>judul tab browser</b> — tersimpan di database, <b>tanpa perlu restart</b>.
+  Kosongkan sebuah kolom untuk kembali memakai nilai default dari file <code>.env</code>.
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-palette me-1"></i>Branding</div>
+      <div class="card-body">
+        <form method="post" action="/pengaturan">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Nama Aplikasi</label>
+            <input type="text" name="brand_name" class="form-control" value="{{ brand_now.brand_name }}" required>
+            <div class="form-text">Tampil di header halaman login &amp; bagian atas sidebar. Default:
+              <code>{{ brand_default.brand_name }}</code></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Sub Judul</label>
+            <input type="text" name="brand_subtitle" class="form-control" value="{{ brand_now.brand_subtitle }}">
+            <div class="form-text">Tulisan kecil di bawah nama aplikasi. Default:
+              <code>{{ brand_default.brand_subtitle }}</code></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Teks Footer (halaman login)</label>
+            <input type="text" name="brand_footer" class="form-control" value="{{ brand_now.brand_footer }}">
+            <div class="form-text">Ditampilkan sebagai <code>&copy; {{ today.year }} &lt;teks ini&gt;</code>. Default:
+              <code>{{ brand_default.brand_footer }}</code></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Judul Tab Browser</label>
+            <input type="text" name="brand_doc_title" class="form-control" value="{{ brand_now.brand_doc_title }}">
+            <div class="form-text">Judul di tab browser. Halaman lain ditulis
+              <code>&lt;nama halaman&gt; &middot; &lt;judul ini&gt;</code>. Default:
+              <code>{{ brand_default.brand_doc_title }}</code></div>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-sm"><i class="bi bi-save me-1"></i>Simpan Pengaturan</button>
+            <a href="/" class="btn btn-outline-secondary btn-sm">Batal</a>
+          </div>
+        </form>
+
+        <hr>
+        <form method="post" action="/pengaturan" onsubmit="return confirm('Kembalikan semua branding ke nilai default (.env)?')">
+          <input type="hidden" name="reset" value="1">
+          <button class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Default</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-eye me-1"></i>Pratinjau</div>
+      <div class="card-body">
+        <div class="border rounded p-3 mb-3">
+          <div class="text-muted small mb-1">Judul tab browser</div>
+          <div class="fw-semibold">{{ brand_now.brand_doc_title }}</div>
+        </div>
+        <div class="border rounded p-3 mb-3">
+          <div class="text-muted small mb-1">Header halaman login</div>
+          <div class="fw-bold">{{ brand_now.brand_name }}</div>
+          <div class="text-muted small">{{ brand_now.brand_subtitle }}</div>
+        </div>
+        <div class="border rounded p-3 mb-3 bg-dark text-white">
+          <div class="text-white-50 small mb-1">Sidebar</div>
+          <div class="fw-bold">{{ brand_now.brand_name }}</div>
+          <div class="small text-white-50">{{ brand_now.brand_subtitle }}</div>
+        </div>
+        <div class="border rounded p-3">
+          <div class="text-muted small mb-1">Footer login</div>
+          <div class="small">&copy; {{ today.year }} {{ brand_now.brand_footer }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="rahasia-note mt-3">
+      Perubahan berlaku untuk semua pengguna dalam &le; 20 detik (cache internal) &mdash; biasanya langsung.
+      Ubah <code>.env</code> + restart container hanya bila ingin mengubah <b>nilai default</b>.
+    </div>
+  </div>
+</div>
+{% endblock %}

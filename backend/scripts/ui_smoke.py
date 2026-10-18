@@ -489,6 +489,69 @@ for path in ["/master", "/wilayah", "/pengguna", "/keuangan", "/lhpp", "/surat-t
     else:
         bad(f"GET {path}", f"HTTP {code}")
 
+
+print("\n== 16. Pengaturan branding (SUPERADMIN) ==")
+code, _, body = sa.get("/pengaturan")
+if code == 200 and "Branding" in body:
+    ok("GET /pengaturan (superadmin)")
+else:
+    bad("GET /pengaturan", f"HTTP {code}")
+
+code, _, body = spv.get("/pengaturan")
+if code == 403 or "Akses Ditolak" in body:
+    ok("guard: SPV tidak boleh buka /pengaturan (403)")
+else:
+    bad("guard /pengaturan untuk SPV", f"HTTP {code}")
+
+code, url, _ = sa.post(
+    "/pengaturan",
+    {
+        "brand_name": "SGIT Surat Penawaran",
+        "brand_subtitle": "Pusat & Wilayah",
+        "brand_footer": "SGIT Platform",
+        "brand_doc_title": "SGIT Penawaran",
+    },
+)
+if "err=" not in url:
+    ok("POST /pengaturan simpan branding")
+else:
+    bad("POST /pengaturan", urllib.parse.unquote(url))
+
+# brand langsung terpakai di login + sidebar (tanpa restart)
+code, _, body = admin.get("/login")
+if "SGIT Surat Penawaran" in body or "SudahLogin" in body:
+    pass
+code, _, body = anon.get("/login")
+if "SGIT Surat Penawaran" in body and "SGIT Platform" in body:
+    ok("branding baru muncul di halaman login")
+else:
+    bad("branding di halaman login", body[:150])
+
+code, _, body = admin.get("/")
+if "SGIT Surat Penawaran" in body:
+    ok("branding baru muncul di sidebar")
+else:
+    bad("branding di sidebar", "")
+
+code, _, body = admin.get("/klien")
+if "<title>" in body and "SGIT Penawaran" in body.split("<title>")[1].split("</title>")[0]:
+    ok("judul tab browser memakai brand", body.split("<title>")[1].split("</title>")[0])
+else:
+    bad("judul tab browser", body.split("<title>")[1].split("</title>")[0] if "<title>" in body else "")
+
+code, url, _ = sa.post("/pengaturan", {"reset": "1"})
+if "err=" not in url:
+    ok("POST /pengaturan reset ke default")
+else:
+    bad("POST /pengaturan reset", urllib.parse.unquote(url))
+
+code, _, body = sa.get("/pengaturan")
+if "Surat Penawaran Multi Wilayah" in body:
+    ok("reset mengembalikan nilai default .env")
+else:
+    bad("reset ke default", body[:150])
+
+
 print("\n" + "=" * 60)
 print(f"HASIL: {len(PASS)} OK, {len(FAIL)} FAIL")
 for label, detail in FAIL:

@@ -26,9 +26,16 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "/app/uploads"
     AUTO_CREATE_TABLES: bool = True
 
-    # Sesi UI (cookie HttpOnly). Set COOKIE_SECURE=true bila sudah lewat HTTPS (Cloudflare Tunnel).
+    # Cookie sesi hanya dikirim lewat HTTPS (akses publik via Cloudflare Tunnel)
     COOKIE_SECURE: bool = False
     COOKIE_NAME: str = "sp_session"
+
+    # Branding default — dapat diubah tanpa restart lewat halaman /pengaturan (SUPERADMIN).
+    # Nilai di sini hanya dipakai sebagai default bila belum diatur dari UI.
+    BRAND_NAME: str = "Surat Penawaran Multi Wilayah"
+    BRAND_SUBTITLE: str = "Pusat & Wilayah"
+    BRAND_FOOTER: str = "SGIT Platform"
+    BRAND_DOC_TITLE: str = ""  # kosong = ikut BRAND_NAME
 
 
 @lru_cache

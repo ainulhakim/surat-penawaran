@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Ubah Penawaran' if penawaran else 'Penawaran Baru' }}{% endblock %}
+{% block title %}{{ 'Ubah Penawaran' if penawaran else 'Penawaran Baru' }} &middot; {{ brand.brand_doc_title }}{% endblock %}
 {% block header %}{{ 'Ubah Penawaran ' ~ penawaran.nomor_surat if penawaran else 'Penawaran Baru' }}{% endblock %}
 {% block content %}
 <form method="post" action="{{ '/penawaran/%d/edit' % penawaran.id if penawaran else '/penawaran/baru' }}" id="formPenawaran">
