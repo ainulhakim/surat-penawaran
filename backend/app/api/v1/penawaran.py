@@ -233,7 +233,7 @@ def submit_penawaran(
     db.refresh(penawaran)
 
     client = db.get(Client, penawaran.client_id)
-    notif.notify(
+    notify.notify(
         db,
         f"📄 *Penawaran menunggu approval*\n"
         f"No: {penawaran.nomor_surat}\nClient: {client.nama_perusahaan} ({client.kota})\n"
@@ -305,7 +305,7 @@ def approval_penawaran(
     db.refresh(penawaran)
 
     if aksi_raw == ApprovalAction.APPROVE:
-        notif.notify(
+        notify.notify(
             db,
             f"✅ *Penawaran disetujui*\nNo: {penawaran.nomor_surat}\n"
             f"Berlaku sampai: {penawaran.valid_until}\n"
@@ -317,7 +317,7 @@ def approval_penawaran(
             roles=(UserRole.ADMIN_WILAYAH,),
         )
     else:
-        notif.notify(
+        notify.notify(
             db,
             f"♻️ *Penawaran perlu revisi*\nNo: {penawaran.nomor_surat}\nCatatan SPV: {payload.catatan}",
             "ADMIN_GRUP",
@@ -348,7 +348,7 @@ def deal_penawaran(
     db.refresh(penawaran)
 
     client = db.get(Client, penawaran.client_id)
-    notif.notify(
+    notify.notify(
         db,
         f"🤝 *DEAL* — {client.nama_perusahaan}\nNo penawaran: {penawaran.nomor_surat}\n"
         f"Tgl PO: {payload.tgl_po}\nNo SPK: {payload.no_spk}\nSilakan lanjut booking PIC.",
