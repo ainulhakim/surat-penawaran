@@ -83,6 +83,7 @@ class PenawaranOut(BaseModel):
 
 class PenawaranRingkas(BaseModel):
     id: int
+    wilayah_id: int | None = None
     nomor_surat: str
     status: str
     perihal: str
@@ -91,6 +92,8 @@ class PenawaranRingkas(BaseModel):
     harga_total: Decimal | None = None
     valid_until: date | None = None
     is_nego: bool = False
+    # False = baris milik wilayah lain (isi rahasia dikosongkan; hanya nama + kota)
+    akses_penuh: bool = True
 
     class Config:
         from_attributes = True

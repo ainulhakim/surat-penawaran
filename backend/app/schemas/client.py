@@ -36,6 +36,11 @@ class ClientOut(ClientBase):
     is_active: bool = True
     lock_status: str = "FREE"
     lock_until: str | None = None
+    # Wilayah yang sedang memegang lock (kalau ada)
+    lock_wilayah_id: int | None = None
+    lock_wilayah_nama: str | None = None
+    # False = klien tidak bisa dipakai membuat penawaran baru (terkunci wilayah lain)
+    can_quote: bool = True
 
     class Config:
         from_attributes = True

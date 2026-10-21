@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
@@ -28,6 +28,57 @@ from app.services.numbering import next_penawaran_number
 router = APIRouter(prefix="/penawaran", tags=["penawaran"])
 
 EDITABLE = {PenawaranStatus.DRAFT, PenawaranStatus.REVISI}
+
+# Brief poin 11 + 28 — penawaran bersifat RAHASIA, tetapi wilayah lain TETAP melihat
+# order wilayah lain di dashboard/daftar (nama perusahaan + kota saja). Isi rahasia
+# (nomor surat, perihal, harga) hanya untuk wilayah pembuat + Pusat.
+# Status penawaran yang boleh diketahui wilayah lain = setelah SPV approve
+# (saat itulah penawaran masuk dashboard bersama & klien terkunci 15/7 hari).
+STATUS_TERBUKA: tuple[PenawaranStatus, ...] = (
+    PenawaranStatus.APPROVED,
+    PenawaranStatus.DEAL,
+    PenawaranStatus.BOOKING_PIC,
+    PenawaranStatus.SURAT_TUGAS,
+    PenawaranStatus.PELAKSANAAN,
+    PenawaranStatus.LHPP,
+    PenawaranStatus.SKLK3,
+    PenawaranStatus.INVOICE,
+    PenawaranStatus.SELESAI,
+)
+
+
+def akses_penuh(penawaran: Penawaran, user: User) -> bool:
+    """True bila user berhak melihat seluruh isi penawaran (nomor, perihal, harga)."""
+    return is_pusat(user) or penawaran.wilayah_id == user.wilayah_id
+
+
+def kondisi_terlihat(user: User):
+    """Kondisi SQL: baris penawaran mana yang boleh muncul di daftar untuk user ini.
+
+    Pusat → semua. Wilayah → penawaran sendiri (semua status) + penawaran wilayah lain
+    yang sudah disetujui (``STATUS_TERBUKA``). Mengembalikan ``None`` untuk Pusat.
+    """
+    if is_pusat(user):
+        return None
+    return or_(Penawaran.wilayah_id == user.wilayah_id, Penawaran.status.in_(STATUS_TERBUKA))
+
+
+def ringkas_penawaran(penawaran: Penawaran, client: Client, user: User) -> PenawaranRingkas:
+    """Baris daftar penawaran; kolom rahasia dikosongkan bila bukan wilayah pembuat."""
+    penuh = akses_penuh(penawaran, user)
+    return PenawaranRingkas(
+        id=penawaran.id,
+        wilayah_id=penawaran.wilayah_id,
+        nomor_surat=penawaran.nomor_surat if penuh else "",
+        status=penawaran.status,
+        perihal=penawaran.perihal if penuh else "",
+        nama_perusahaan=client.nama_perusahaan,
+        kota=client.kota,
+        harga_total=penawaran.harga_total if penuh else None,
+        valid_until=penawaran.valid_until,
+        is_nego=penawaran.is_nego if penuh else False,
+        akses_penuh=penuh,
+    )
 
 
 def _compute_total(items: list[PenawaranItem]) -> Decimal:
@@ -70,26 +121,12 @@ def list_penawaran(
         .order_by(Penawaran.created_at.desc())
         .limit(200)
     )
-    if not is_pusat(user):
-        stmt = stmt.where(Penawaran.wilayah_id == user.wilayah_id)
+    kondisi = kondisi_terlihat(user)
+    if kondisi is not None:
+        stmt = stmt.where(kondisi)
     if status is not None:
         stmt = stmt.where(Penawaran.status == status)
-    result = []
-    for penawaran, client in db.execute(stmt).all():
-        result.append(
-            PenawaranRingkas(
-                id=penawaran.id,
-                nomor_surat=penawaran.nomor_surat,
-                status=penawaran.status,
-                perihal=penawaran.perihal,
-                nama_perusahaan=client.nama_perusahaan,
-                kota=client.kota,
-                harga_total=penawaran.harga_total,
-                valid_until=penawaran.valid_until,
-                is_nego=penawaran.is_nego,
-            )
-        )
-    return result
+    return [ringkas_penawaran(p, c, user) for p, c in db.execute(stmt).all()]
 
 
 @router.get("/publik", response_model=list[PenawaranRingkas])
@@ -101,28 +138,13 @@ def list_publik_penawaran(
     stmt = (
         select(Penawaran, Client)
         .join(Client, Client.id == Penawaran.client_id)
-        .where(Penawaran.status.notin_([PenawaranStatus.BATAL, PenawaranStatus.DRAFT, PenawaranStatus.REVISI]))
+        .where(Penawaran.status.in_(STATUS_TERBUKA))
         .order_by(Penawaran.approved_at.desc())
         .limit(200)
     )
     if q:
         stmt = stmt.where(func.lower(Client.nama_perusahaan).like(f"%{q.lower()}%"))
-    result = []
-    for penawaran, client in db.execute(stmt).all():
-        result.append(
-            PenawaranRingkas(
-                id=penawaran.id,
-                nomor_surat="",
-                status=penawaran.status,
-                perihal="",
-                nama_perusahaan=client.nama_perusahaan,
-                kota=client.kota,
-                harga_total=None,
-                valid_until=penawaran.valid_until,
-                is_nego=False,
-            )
-        )
-    return result
+    return [ringkas_penawaran(p, c, user) for p, c in db.execute(stmt).all()]
 
 
 @router.get("/{penawaran_id}", response_model=PenawaranOut)

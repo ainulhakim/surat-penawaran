@@ -4,7 +4,9 @@
 {% block content %}
 <div class="card">
   <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-    <span><i class="bi bi-file-earmark-text me-1"></i>{{ rows | length }} penawaran</span>
+    <span><i class="bi bi-file-earmark-text me-1"></i>{{ rows | length }} penawaran
+      {% if rahasia_count %}<span class="badge bg-secondary badge-status ms-1">{{ rahasia_count }} wilayah lain (harga disembunyikan)</span>{% endif %}
+    </span>
     <div class="d-flex gap-2">
       <form class="d-flex" method="get" action="/penawaran">
         <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -27,13 +29,24 @@
       </thead>
       <tbody>
         {% for p, c in rows %}
-        <tr>
-          <td><a href="/penawaran/{{ p.id }}" class="fw-semibold text-decoration-none">{{ p.nomor_surat or '-' }}</a>
-            {% if p.is_nego %}<br><span class="badge bg-warning text-dark badge-status">NEGO</span>{% endif %}</td>
+        {% set penuh = akses_map.get(p.id, True) %}
+        <tr {% if not penuh %}class="table-light"{% endif %}>
+          <td>
+            {% if penuh %}
+            <a href="/penawaran/{{ p.id }}" class="fw-semibold text-decoration-none">{{ p.nomor_surat or '-' }}</a>
+            {% if p.is_nego %}<br><span class="badge bg-warning text-dark badge-status">NEGO</span>{% endif %}
+            {% else %}
+            <span class="text-muted" title="Nomor surat milik wilayah pembuat"><i class="bi bi-lock-fill me-1"></i>rahasia</span>
+            {% endif %}
+          </td>
           <td class="small">{{ c.nama_perusahaan }}<br><span class="text-muted">{{ c.kota }}</span></td>
-          <td class="small">{{ p.perihal }}</td>
-          <td class="text-end small">{{ p.harga_total | rupiah }}</td>
-          <td class="small">{{ wilayah_map.get(p.wilayah_id, '-') }}</td>
+          <td class="small">{{ p.perihal if penuh else '—' }}</td>
+          <td class="text-end small">
+            {% if penuh %}{{ p.harga_total | rupiah }}
+            {% else %}<span class="text-muted" title="Harga hanya untuk wilayah pembuat"><i class="bi bi-eye-slash"></i> disembunyikan</span>{% endif %}
+          </td>
+          <td class="small">{{ wilayah_map.get(p.wilayah_id, '-') }}
+            {% if not penuh %}<br><span class="badge bg-secondary badge-status">wilayah lain</span>{% endif %}</td>
           <td class="small">{{ p.valid_until | tanggal }}</td>
           <td><span class="badge bg-{{ p.status | badge }} badge-status">{{ p.status }}</span></td>
         </tr>
@@ -43,5 +56,10 @@
       </tbody>
     </table>
   </div>
+</div>
+<div class="rahasia-note mt-3">
+  <i class="bi bi-shield-lock me-1"></i>Order wilayah lain tetap tampil sebagai informasi
+  (hanya <b>nama perusahaan + kota</b>). <b>Nomor surat, perihal, dan harga</b> hanya dapat
+  dilihat wilayah pembuat dan Pusat.
 </div>
 {% endblock %}

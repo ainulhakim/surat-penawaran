@@ -16,18 +16,32 @@
           {% endif %}{% endfor %}
           <div class="form-text">Klien tidak dapat diubah setelah penawaran dibuat.</div>
           {% else %}
-          <select name="client_id" class="form-select" required>
+          <select name="client_id" class="form-select" id="pilihKlien" required>
             <option value="">— pilih klien —</option>
-            {% for c in klien %}
-            {% set lock = lock_map.get(c.id) %}
-            <option value="{{ c.id }}" {% if client_id == c.id %}selected{% endif %}
-                    {% if lock %}data-locked="1"{% endif %}>
-              {{ c.nama_perusahaan }} — {{ c.kota }}{% if lock %} (TERKUNCI wilayah lain){% endif %}
-            </option>
+            {% for label, mine, items in klien_grup %}
+            <optgroup label="{{ label }}{{ ' (dapat dipilih)' if mine else '' }}">
+              {% for c in items %}
+              {% set lock = lock_map.get(c.id) %}
+              {% set boleh = can_quote_map.get(c.id, True) %}
+              <option value="{{ c.id }}" {% if client_id == c.id %}selected{% endif %}
+                      {% if not boleh %}disabled{% endif %}>
+                {{ c.nama_perusahaan }} — {{ c.kota }}{% if not boleh %}
+                [TIDAK AKTIF: diproses {{ wilayah_map.get(lock.wilayah_id, 'wilayah lain') if lock else 'wilayah lain' }} s/d {{ lock.expires_at | tanggal if lock else '-' }}]{% elif lock %}
+                [sedang diproses wilayah ini]{% endif %}
+              </option>
+              {% endfor %}
+            </optgroup>
+            {% else %}
+            <option value="" disabled>Belum ada klien — tambahkan dulu di menu Klien</option>
             {% endfor %}
           </select>
           <div class="form-text">
-            Klien berstatus TERKUNCI akan ditolak server (409). <a href="/klien">Tambah klien baru</a>.
+            {% if nonaktif_count %}
+            <span class="text-danger"><i class="bi bi-slash-circle me-1"></i>{{ nonaktif_count }} klien
+            tidak aktif</span> — sedang diproses wilayah lain sehingga tidak bisa dipilih.
+            {% endif %}
+            Klien aktif wilayah lain <b>tetap dapat dipilih</b> selama belum terkunci.
+            <a href="/klien">Tambah klien baru</a>.
           </div>
           {% endif %}
         </div>

@@ -20,35 +20,56 @@
     <table class="table table-sm table-hover align-middle mb-0">
       <thead class="table-light">
         <tr><th>Perusahaan</th><th>PIC</th><th>Kontak</th><th>Alamat</th><th>Wilayah</th>
-          <th>Status Lock</th><th class="text-end">Aksi</th></tr>
+          <th>Status Klien</th><th class="text-end">Aksi</th></tr>
       </thead>
       <tbody>
         {% for c in rows %}
         {% set lock = lock_map.get(c.id) %}
-        <tr>
-          <td class="fw-semibold">{{ c.nama_perusahaan }}</td>
+        {% set boleh = can_quote_map.get(c.id, True) %}
+        {% set milik_sendiri = is_pusat or c.wilayah_id == user.wilayah_id %}
+        <tr {% if not boleh %}class="table-light"{% endif %}>
+          <td class="fw-semibold">{{ c.nama_perusahaan }}
+            {% if not milik_sendiri %}<br><span class="badge bg-secondary badge-status">milik wilayah lain</span>{% endif %}</td>
           <td class="small">{{ c.pic or '-' }}{% if c.no_pic %}<br><span class="text-muted">{{ c.no_pic }}</span>{% endif %}</td>
           <td class="small">{{ c.email or '-' }}{% if c.no_telpon %}<br><span class="text-muted">{{ c.no_telpon }}</span>{% endif %}</td>
           <td class="small">{{ c.alamat }}<br><span class="text-muted">{{ c.kota }}{% if c.kodepos %} {{ c.kodepos }}{% endif %}</span></td>
           <td class="small">{{ wilayah_map.get(c.wilayah_id, '-') }}</td>
           <td>
-            {% if lock %}
-              <span class="badge bg-danger badge-status">LOCKED</span>
-              <div class="small text-muted">s/d {{ lock.expires_at | tanggal_waktu }}</div>
+            {% if not boleh %}
+              <span class="badge bg-danger badge-status">TIDAK AKTIF</span>
+              <div class="small text-muted">diproses
+                {{ wilayah_map.get(lock.wilayah_id, '-') if lock else '-' }}<br>
+                s/d {{ lock.expires_at | tanggal_waktu if lock else '-' }}</div>
+            {% elif lock %}
+              <span class="badge bg-warning text-dark badge-status">NEGO/PROSES</span>
+              <div class="small text-muted">diproses wilayah ini<br>s/d {{ lock.expires_at | tanggal_waktu }}</div>
             {% else %}
-              <span class="badge bg-success badge-status">FREE</span>
+              <span class="badge bg-success badge-status">AKTIF</span>
             {% endif %}
           </td>
           <td class="text-end">
             {% if user.role in ['SUPERADMIN', 'ADMIN_WILAYAH'] %}
-            <a href="/klien/{{ c.id }}/edit" class="btn btn-sm btn-outline-secondary" title="Ubah">
-              <i class="bi bi-pencil"></i></a>
-            <a href="/penawaran/baru?client_id={{ c.id }}" class="btn btn-sm btn-outline-primary" title="Buat penawaran">
-              <i class="bi bi-file-earmark-plus"></i></a>
-            <form method="post" action="/klien/{{ c.id }}/hapus" class="d-inline"
-                  onsubmit="return confirm('Nonaktifkan klien {{ c.nama_perusahaan }}?')">
-              <button class="btn btn-sm btn-outline-danger" title="Nonaktifkan"><i class="bi bi-trash"></i></button>
-            </form>
+              {% if boleh %}
+              <a href="/penawaran/baru?client_id={{ c.id }}" class="btn btn-sm btn-outline-primary" title="Buat penawaran">
+                <i class="bi bi-file-earmark-plus"></i></a>
+              {% else %}
+              <button class="btn btn-sm btn-outline-secondary" disabled
+                      title="Klien sedang diproses {{ wilayah_map.get(lock.wilayah_id, 'wilayah lain') if lock else 'wilayah lain' }} — penawaran baru ditolak">
+                <i class="bi bi-slash-circle"></i></button>
+              {% endif %}
+              {% if milik_sendiri or boleh %}
+              <a href="/klien/{{ c.id }}/edit" class="btn btn-sm btn-outline-secondary" title="Ubah">
+                <i class="bi bi-pencil"></i></a>
+              {% else %}
+              <button class="btn btn-sm btn-outline-secondary" disabled title="Klien terkunci wilayah lain">
+                <i class="bi bi-slash-circle"></i></button>
+              {% endif %}
+              {% if milik_sendiri %}
+              <form method="post" action="/klien/{{ c.id }}/hapus" class="d-inline"
+                    onsubmit="return confirm('Nonaktifkan klien {{ c.nama_perusahaan }}?')">
+                <button class="btn btn-sm btn-outline-danger" title="Nonaktifkan"><i class="bi bi-trash"></i></button>
+              </form>
+              {% endif %}
             {% else %}
             <a href="/klien/{{ c.id }}/edit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>
             {% endif %}
@@ -62,7 +83,9 @@
   </div>
 </div>
 <div class="rahasia-note mt-3">
-  <i class="bi bi-info-circle me-1"></i>Kunci unik klien = <b>nama perusahaan + email + kota + kodepos</b>.
-  Klien yang terkunci (LOCKED) sedang diproses wilayah lain &mdash; penawaran baru ditolak (409).
+  <i class="bi bi-info-circle me-1"></i>Data klien <b>terpusat</b> &mdash; semua wilayah melihat daftar
+  yang sama. Kunci unik klien = <b>nama perusahaan + email + kota + kodepos</b>.<br>
+  Klien berstatus <b>TIDAK AKTIF</b> sedang diproses wilayah lain (lock aktif): tetap tampil di daftar,
+  tetapi tidak dapat dipilih saat membuat penawaran baru (server menolak dengan 409).
 </div>
 {% endblock %}

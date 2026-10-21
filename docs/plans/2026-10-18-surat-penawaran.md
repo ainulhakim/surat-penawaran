@@ -41,6 +41,9 @@
 - Lapisan UI **tipis**: `app/web/routes.py` memanggil fungsi endpoint di `app/api/v1/*` secara in-process → aturan bisnis tidak diduplikasi.
 - Guard role: `app/web/deps.py` (`NotAuthenticated` → redirect `/login`, `Forbidden` → halaman 403).
 - Template: `app/templates/`; aset statis `app/static/style.css`. Bootstrap & ikon via CDN.
+- **Branding dapat diubah dari UI**: `/pengaturan` (SUPERADMIN) → nama aplikasi, sub judul, footer login,
+  judul tab browser. Disimpan di tabel `app_settings`, fallback ke `.env` (`BRAND_*`), berlaku tanpa restart
+  (`app/services/branding.py`, cache 20 detik). Template wajib memakai `{{ brand.* }}`, bukan teks hardcode.
 
 ## Endpoint utama (sudah live)
 

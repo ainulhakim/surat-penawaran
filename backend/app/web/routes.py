@@ -14,7 +14,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.v1 import dashboard as dashboard_api
@@ -350,15 +350,23 @@ def beranda(
     db: Session = Depends(get_db),
 ):
     data = dashboard_api.summary(user=user, db=db)
-    terbaru = db.scalars(
+    # Brief poin 11 + 28: wilayah lain TETAP melihat order wilayah lain di dashboard
+    # (nama perusahaan + kota), harga disembunyikan. Wilayah sendiri selalu di atas.
+    stmt = (
         select(Penawaran)
         .options(selectinload(Penawaran.items))
-        .order_by(Penawaran.created_at.desc())
-        .limit(8)
-    ).all()
-    if not is_pusat(user):
-        terbaru = [p for p in terbaru if p.wilayah_id == user.wilayah_id]
+        .order_by(
+            case((Penawaran.wilayah_id == user.wilayah_id, 0), else_=1),
+            Penawaran.created_at.desc(),
+        )
+        .limit(12)
+    )
+    kondisi = pen_api.kondisi_terlihat(user)
+    if kondisi is not None:
+        stmt = stmt.where(kondisi)
+    terbaru = db.scalars(stmt).all()
     klien_map = {c.id: c for c in db.scalars(select(Client)).all()}
+    lain_count = sum(1 for p in terbaru if not pen_api.akses_penuh(p, user))
     return render(
         request,
         "dashboard.html",
@@ -367,6 +375,8 @@ def beranda(
         data=data,
         terbaru=terbaru,
         klien_map=klien_map,
+        akses_map={p.id: pen_api.akses_penuh(p, user) for p in terbaru},
+        lain_count=lain_count,
         wilayah_map=_nama_wilayah(db),
     )
 
@@ -384,8 +394,6 @@ def daftar_klien(
     db: Session = Depends(get_db),
 ):
     stmt = select(Client).where(Client.is_active.is_(True)).order_by(Client.nama_perusahaan)
-    if not is_pusat(user):
-        stmt = stmt.where(Client.wilayah_id == user.wilayah_id)
     if q.strip():
         like = f"%{q.lower().strip()}%"
         stmt = stmt.where(
@@ -396,7 +404,10 @@ def daftar_klien(
                 func.lower(Client.pic).like(like),
             )
         )
+    # Data klien terpusat (brief poin 4): SEMUA klien tampil di semua wilayah.
+    # Yang dibatasi bukan tampilannya, tapi hak pakai → ``can_quote_map`` (poin 10).
     rows = db.scalars(stmt.limit(300)).all()
+    from app.api.v1.clients import can_quote
     from app.services.locks import active_lock
 
     lock_map = {c.id: active_lock(db, c.id) for c in rows}
@@ -407,6 +418,7 @@ def daftar_klien(
         nav="klien",
         rows=rows,
         lock_map=lock_map,
+        can_quote_map={c.id: can_quote(user, lock_map[c.id]) for c in rows},
         wilayah_map=_nama_wilayah(db),
         q=q,
     )
@@ -542,8 +554,11 @@ def daftar_penawaran(
         .order_by(Penawaran.created_at.desc())
         .limit(300)
     )
-    if not is_pusat(user):
-        stmt = stmt.where(Penawaran.wilayah_id == user.wilayah_id)
+    # Wilayah lain tetap melihat order wilayah lain (nama perusahaan + kota saja);
+    # kolom rahasia (nomor/perihal/harga) dikosongkan lewat akses_map.
+    kondisi = pen_api.kondisi_terlihat(user)
+    if kondisi is not None:
+        stmt = stmt.where(kondisi)
     if status:
         stmt = stmt.where(Penawaran.status == status)
     rows = db.execute(stmt).all()
@@ -553,6 +568,8 @@ def daftar_penawaran(
         user=user,
         nav="penawaran",
         rows=rows,
+        akses_map={p.id: pen_api.akses_penuh(p, user) for p, _c in rows},
+        rahasia_count=sum(1 for p, _c in rows if not pen_api.akses_penuh(p, user)),
         status=status,
         status_menu=_status_menu(),
         wilayah_map=_nama_wilayah(db),
@@ -566,15 +583,38 @@ def form_penawaran_baru(
     user: User = Depends(web_roles(*ADMIN_ROLES)),
     db: Session = Depends(get_db),
 ):
+    # Data klien terpusat: semua klien muncul sebagai pilihan, tetapi klien yang
+    # sedang terkunci wilayah lain ditandai nonaktif (tidak bisa dipilih) — brief poin 10.
     stmt = select(Client).where(Client.is_active.is_(True)).order_by(Client.nama_perusahaan)
-    if not is_pusat(user):
-        stmt = stmt.where(Client.wilayah_id == user.wilayah_id)
     klien = db.scalars(stmt.limit(500)).all()
     kategori = db.scalars(select(Kategori).order_by(Kategori.nama)).all()
     bidang = db.scalars(select(Bidang).order_by(Bidang.nama)).all()
     objek = db.scalars(select(Objek).order_by(Objek.nama)).all()
+    from app.api.v1.clients import can_quote
     from app.services.locks import active_lock
 
+    lock_map = {c.id: active_lock(db, c.id) for c in klien}
+    can_quote_map = {c.id: can_quote(user, lock_map[c.id]) for c in klien}
+    wilayah_map = _nama_wilayah(db)
+
+    def _pendek(nama: str | None) -> str:
+        teks = nama or "-"
+        return teks[8:].strip() if teks.lower().startswith("wilayah ") else teks
+
+    # Wilayah sendiri di atas, sisanya per wilayah (optgroup).
+    grup: list[tuple[str, bool, list]] = []
+    if is_pusat(user):
+        urutan = sorted({c.wilayah_id for c in klien}, key=lambda w: wilayah_map.get(w, ""))
+        for wid in urutan:
+            grup.append((wilayah_map.get(wid, "Tanpa wilayah"), False, [c for c in klien if c.wilayah_id == wid]))
+    else:
+        grup.append(
+            (f"Wilayah Anda — {_pendek(wilayah_map.get(user.wilayah_id))}", True,
+             [c for c in klien if c.wilayah_id == user.wilayah_id])
+        )
+        lain = sorted({c.wilayah_id for c in klien if c.wilayah_id != user.wilayah_id}, key=lambda w: wilayah_map.get(w, ""))
+        for wid in lain:
+            grup.append((f"Wilayah {wilayah_map.get(wid, '-')}", False, [c for c in klien if c.wilayah_id == wid]))
     return render(
         request,
         "penawaran_form.html",
@@ -582,11 +622,15 @@ def form_penawaran_baru(
         nav="penawaran",
         penawaran=None,
         klien=klien,
+        klien_grup=[(label, mine, items) for label, mine, items in grup if items],
         kategori=kategori,
         bidang=bidang,
         objek=objek,
         client_id=client_id,
-        lock_map={c.id: active_lock(db, c.id) for c in klien},
+        lock_map=lock_map,
+        can_quote_map=can_quote_map,
+        wilayah_map=wilayah_map,
+        nonaktif_count=sum(1 for c in klien if not can_quote_map[c.id]),
     )
 
 
@@ -674,7 +718,10 @@ def detail_penawaran(
     if not p:
         return back("/penawaran", err="Penawaran tidak ditemukan")
     if not is_pusat(user) and p.wilayah_id != user.wilayah_id:
-        return back("/penawaran", err="Penawaran bersifat rahasia — bukan wilayah Anda")
+        return back(
+            "/penawaran",
+            err="Penawaran milik wilayah lain bersifat rahasia — nomor surat, perihal, dan harga tidak ditampilkan.",
+        )
 
     klien = db.get(Client, p.client_id)
     riwayat = db.scalars(
@@ -736,6 +783,8 @@ def form_penawaran_edit(
         objek=db.scalars(select(Objek).order_by(Objek.nama)).all(),
         client_id=p.client_id,
         lock_map={},
+        can_quote_map={},
+        wilayah_map=_nama_wilayah(db),
     )
 
 

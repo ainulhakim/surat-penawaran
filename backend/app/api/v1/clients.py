@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, require_roles
+from app.core.deps import get_current_user, is_pusat, require_roles
 from app.db.session import get_db
-from app.models import Client, User, UserRole
+from app.models import Client, User, UserRole, Wilayah
 from app.schemas.client import ClientCreate, ClientOut, ClientPublicOut, ClientUpdate
 from app.services.audit import log_action
 from app.services.locks import active_lock
@@ -19,11 +19,31 @@ def _lock_info(db: Session, client_id: int) -> tuple[str, str | None]:
     return "LOCKED", lock.expires_at.isoformat()
 
 
+def can_quote(user: User, lock) -> bool:
+    """True bila user boleh membuat penawaran baru untuk klien ini.
+
+    Mengikuti aturan di ``create_penawaran``: lock aktif memblokir SEMUA penawaran baru,
+    kecuali wilayah yang memegang lock itu sendiri (boleh menerbitkan penawaran lain
+    untuk klien yang sama).
+    """
+    if lock is None:
+        return True
+    if is_pusat(user):
+        return False  # Pusat juga ditolak 409 selama lock aktif
+    return lock.wilayah_id == user.wilayah_id
+
+
 def _to_out(db: Session, client: Client, viewer: User) -> ClientOut:
     out = ClientOut.model_validate(client)
+    lock = active_lock(db, client.id)
     status, until = _lock_info(db, client.id)
     out.lock_status = status
     out.lock_until = until
+    out.can_quote = can_quote(viewer, lock)
+    if lock:
+        out.lock_wilayah_id = lock.wilayah_id
+        wilayah = db.get(Wilayah, lock.wilayah_id)
+        out.lock_wilayah_nama = wilayah.nama if wilayah else None
     return out
 
 
@@ -37,9 +57,9 @@ def list_clients(
     user: User = Depends(require_roles(*list(UserRole))),
     db: Session = Depends(get_db),
 ) -> list[ClientOut]:
+    # Data klien TERPUSAT (brief poin 4): semua wilayah melihat daftar yang sama.
+    # Pembatasan wilayah hanya lewat lock klien (poin 10) → flag ``can_quote``.
     stmt = select(Client).where(Client.is_active.is_(True)).order_by(Client.nama_perusahaan)
-    if UserRole(user.role) != UserRole.SUPERADMIN:
-        stmt = stmt.where(Client.wilayah_id == user.wilayah_id)
     if q:
         like = f"%{q.lower()}%"
         stmt = stmt.where(
