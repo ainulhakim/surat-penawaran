@@ -18,7 +18,11 @@
 4. Harga penawaran diisi manual Admin Wilayah (poin 6).
 5. SPV wilayah approve/revisi + tanda tangan digital image (poin 7-8).
 6. Setelah approve: masuk dashboard, **lock client 15 hari** (poin 9-10). Nego → **7 hari** (poin 12).
-7. Penawaran rahasia: hanya wilayah pembuat + Pusat (poin 11). Wilayah lain hanya lihat nama perusahaan + kota (poin 28).
+7. Penawaran rahasia: hanya wilayah pembuat + Pusat boleh melihat **isi** (nomor surat, perihal, harga) (poin 11).
+   Wilayah lain **TETAP melihat order wilayah lain di dashboard/daftar** — hanya **nama perusahaan + kota**
+   (poin 28), dengan status & masa berlaku; baris rahasia tidak bisa diklik ke detail (403).
+   Daftar **klien tetap tampil di semua wilayah** (data klien terpusat), tetapi klien yang terkunci
+   wilayah lain berstatus **tidak aktif** → tidak bisa dipilih saat membuat penawaran baru (409).
 8. Deal: input tanggal PO + nomor SPK (poin 13).
 9. PIC: master data + agenda + booking + reschedule/approve (poin 14-16).
 10. Surat Tugas auto-generate PDF + ttd SPV, bisa diunduh/dicetak (poin 17-19).
@@ -66,6 +70,7 @@ curl -sS http://127.0.0.1:8003/api/v1/health
 python3 backend/scripts/smoke_test.py   # API: 44/44 langkah OK (butuh DB fresh)
 python3 backend/scripts/ui_smoke.py     # UI: 63/63 langkah OK (jalankan SETELAH smoke API)
 docker exec sp-backend ls /app/uploads/surat_tugas/   # PDF surat tugas
+python3 backend/scripts/verify_rahasia_lintas_wilayah.py   # 33 cek brief poin 11/28 (butuh data JTG+JBR)
 ```
 
 Urutan verifikasi wajib: reset DB → `docker compose restart backend` (seed superadmin) →
