@@ -16,7 +16,7 @@ Dokumentasi API otomatis: `http://127.0.0.1:8003/api/docs`
 
 ## Akun awal (Pusat)
 
-- Superadmin: `superadmin@suratpenawaran.id` / `SuperAdmin2026!` — **wajib diganti**
+- Superadmin: `superadmin@suratpenawaran.id` / password di `backend/.env` (`SUPERADMIN_PASSWORD`) — **wajib diganti dari default**
 
 ## Struktur
 

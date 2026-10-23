@@ -9,6 +9,7 @@ ID/status dilakukan lewat API. Jalankan di host:
 
 import base64
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -101,7 +102,7 @@ def api_token(email, password):
 
 print("== 1. Login & halaman utama (SUPERADMIN) ==")
 sa = Ui()
-ok_login, url = sa.login("superadmin@suratpenawaran.id", "SuperAdmin2026!")
+ok_login, url = sa.login("superadmin@suratpenawaran.id", os.getenv("SUPERADMIN_PASSWORD", "GantiDiEnv2026!"))
 if ok_login:
     ok("login superadmin", f"-> {url}")
 else:

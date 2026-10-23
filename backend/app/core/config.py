@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+psycopg://sp_user:sp_pass_change_me@db:5432/surat_penawaran"
 
     SUPERADMIN_EMAIL: str = "superadmin@suratpenawaran.id"
-    SUPERADMIN_PASSWORD: str = "SuperAdmin2026!"
+    SUPERADMIN_PASSWORD: str = "GantiDiEnv2026!"  # WAJIB di-override lewat .env
     SUPERADMIN_NAME: str = "Super Admin Pusat"
 
     TELEGRAM_BOT_TOKEN: str = ""

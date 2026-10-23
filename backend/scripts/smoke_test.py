@@ -1,4 +1,4 @@
-import json, urllib.request, urllib.error
+import json, os, urllib.request, urllib.error
 
 BASE = "http://127.0.0.1:8003/api/v1"
 PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg=="
@@ -29,7 +29,7 @@ def login(email, pw):
     return p.get("access_token")
 
 # 1. login pusat
-tok = login("superadmin@suratpenawaran.id", "SuperAdmin2026!")
+tok = login("superadmin@suratpenawaran.id", os.getenv("SUPERADMIN_PASSWORD", "GantiDiEnv2026!"))
 call("GET", "/auth/me", tok)
 
 # 2. wilayah
